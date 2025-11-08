@@ -353,6 +353,9 @@ button {
   display: inline-flex;
   flex-direction: column;
   gap: 6px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .message.user .bubble {
@@ -373,6 +376,17 @@ button {
   color: rgba(255, 255, 255, 0.75);
 }
 
+<<<<<<< HEAD
+=======
+.bubble p {
+  margin: 0;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+>>>>>>> d858681 (fixed wrapper)
 .typing {
   opacity: 0.85;
 }
