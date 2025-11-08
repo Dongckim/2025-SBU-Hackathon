@@ -1,4 +1,5 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { FormEvent } from 'react'
 import './App.css'
 
 type Sender = 'user' | 'bot'
@@ -10,6 +11,8 @@ type Message = {
 }
 
 const BOT_NAME = 'Hackerton Bot'
+const API_BASE_URL = 'https://stagingapi.neuralseek.com/v1/stony36'
+const API_KEY = import.meta.env.VITE_NEURALSEEK_API_KEY ?? 'e24f8a05-e4fe85b2-3e859a20-6186b503'
 
 const initialMessages: Message[] = [
   {
@@ -25,32 +28,11 @@ const quickReplies: string[] = [
   'Show me a sample answer',
 ]
 
-const createBotResponse = (message: string): string => {
-  const normalized = message.toLowerCase()
-
-  if (normalized.includes('hi') || normalized.includes('hello')) {
-    return 'Hello! Feel free to ask me anything.'
-  }
-
-  if (normalized.includes('feature') || normalized.includes('what can')) {
-    return 'This frontend demo lets you draft messages and preview the conversation flow.'
-  }
-
-  if (normalized.includes('sample')) {
-    return 'Try a request like "Summarize this data" to see how a real chatbot could respond.'
-  }
-
-  if (normalized.includes('help')) {
-    return 'Type in the task or question you need help with, and I will generate a response.'
-  }
-
-  return 'Great question! When connected to a real backend or AI model, the chatbot can give richer, tailored answers.'
-}
-
 function App() {
   const [messages, setMessages] = useState<Message[]>(initialMessages)
   const [input, setInput] = useState('')
   const [isWaiting, setIsWaiting] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const scrollAnchorRef = useRef<HTMLDivElement | null>(null)
 
   const canSend = useMemo(() => input.trim().length > 0 && !isWaiting, [input, isWaiting])
@@ -63,7 +45,78 @@ function App() {
     setMessages((prev) => [...prev, message])
   }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const buildLastTurn = (history: Message[]) => {
+    const lastUser = [...history].reverse().find((item) => item.sender === 'user')
+    const lastBot = [...history].reverse().find((item) => item.sender === 'bot')
+
+    if (lastUser && lastBot) {
+      return [
+        {
+          input: lastUser.text,
+          response: lastBot.text,
+        },
+      ]
+    }
+
+    return []
+  }
+
+  const resolveBotText = (payload: unknown): string => {
+    if (!payload) {
+      return ''
+    }
+
+    if (typeof payload === 'string') {
+      return payload
+    }
+
+    const maybeObject = payload as Record<string, unknown>
+
+  if (typeof maybeObject.answer === 'string' && maybeObject.answer.trim().length > 0) {
+    return maybeObject.answer
+  }
+
+  if (Array.isArray(maybeObject.sourceParts) && maybeObject.sourceParts.length > 0) {
+    const parts = maybeObject.sourceParts.filter(
+      (part): part is string => typeof part === 'string' && part.trim().length > 0,
+    )
+    if (parts.length > 0) {
+      return parts.join('\n')
+    }
+  }
+
+  if (Array.isArray((payload as { outputs?: string[] }).outputs)) {
+    return ((payload as { outputs?: string[] }).outputs ?? []).join('\n')
+  }
+
+    const candidates = [
+    maybeObject.response,
+    maybeObject.output,
+      maybeObject.rendered,
+      maybeObject.text,
+      maybeObject.data,
+    ]
+
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && candidate.trim().length > 0) {
+        return candidate
+      }
+    }
+
+    const choiceContent =
+      (maybeObject.choices &&
+        Array.isArray(maybeObject.choices) &&
+        (maybeObject.choices[0] as { message?: { content?: string } })?.message?.content) ||
+      ''
+
+    if (typeof choiceContent === 'string' && choiceContent.trim().length > 0) {
+      return choiceContent
+    }
+
+    return JSON.stringify(payload, null, 2)
+  }
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const trimmed = input.trim()
 
@@ -81,14 +134,72 @@ function App() {
     setInput('')
     setIsWaiting(true)
 
-    setTimeout(() => {
+    const historySnapshot = [...messages, userMessage]
+    const payload = {
+      ntl: '',
+      agent: 'ChatBot',
+      params: [
+        {
+          name: 'userInput',
+          value: trimmed,
+        },
+      ],
+      options: {
+        streaming: false,
+        llm: '',
+        user_id: '',
+        timeout: 600000,
+        temperatureMod: 1,
+        toppMod: 1,
+        freqpenaltyMod: 1,
+        minTokens: 0,
+        maxTokens: 1000,
+        lastTurn: buildLastTurn(historySnapshot),
+        returnVariables: false,
+        returnVariablesExpanded: false,
+        returnRender: false,
+        returnSource: false,
+        maxRecursion: 10,
+      },
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/maistro`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': API_KEY,
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`)
+      }
+
+      const data = await response.json()
+      const botReply = resolveBotText(data) || 'The service returned an empty response.'
+
       pushMessage({
         id: `bot-${Date.now()}`,
         sender: 'bot',
-        text: createBotResponse(trimmed),
+        text: botReply,
       })
+      setErrorMessage(null)
+    } catch (error) {
+      console.error(error)
+      const fallbackText =
+        'Sorry, I could not reach NeuralSeek right now. Please try again in a moment.'
+
+      pushMessage({
+        id: `bot-${Date.now()}`,
+        sender: 'bot',
+        text: fallbackText,
+      })
+      setErrorMessage('Failed to fetch a response from NeuralSeek.')
+    } finally {
       setIsWaiting(false)
-    }, 700)
+    }
   }
 
   const handleQuickReply = (reply: string) => {
@@ -172,6 +283,11 @@ function App() {
             </button>
           </form>
         </footer>
+        {errorMessage && (
+          <div role="alert" className="error-banner">
+            {errorMessage}
+          </div>
+        )}
       </div>
     </div>
   )
