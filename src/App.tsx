@@ -72,26 +72,18 @@ function App() {
 
     const maybeObject = payload as Record<string, unknown>
 
-  if (typeof maybeObject.answer === 'string' && maybeObject.answer.trim().length > 0) {
-    return maybeObject.answer
-  }
-
-  if (Array.isArray(maybeObject.sourceParts) && maybeObject.sourceParts.length > 0) {
-    const parts = maybeObject.sourceParts.filter(
-      (part): part is string => typeof part === 'string' && part.trim().length > 0,
-    )
-    if (parts.length > 0) {
-      return parts.join('\n')
-    }
-  }
-
-  if (Array.isArray((payload as { outputs?: string[] }).outputs)) {
-    return ((payload as { outputs?: string[] }).outputs ?? []).join('\n')
-  }
-
     const candidates = [
+    maybeObject.answer,
     maybeObject.response,
     maybeObject.output,
+    Array.isArray((payload as { outputs?: string[] }).outputs)
+      ? ((payload as { outputs?: string[] }).outputs ?? []).join('\n')
+      : undefined,
+    Array.isArray(maybeObject.sourceParts) && maybeObject.sourceParts.length > 0
+      ? (maybeObject.sourceParts as unknown[])
+          .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+          .join('\n')
+      : undefined,
       maybeObject.rendered,
       maybeObject.text,
       maybeObject.data,
@@ -158,7 +150,7 @@ function App() {
         returnVariables: false,
         returnVariablesExpanded: false,
         returnRender: false,
-        returnSource: false,
+        returnSource: true,
         maxRecursion: 10,
       },
     }
