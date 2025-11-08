@@ -73,17 +73,17 @@ function App() {
     const maybeObject = payload as Record<string, unknown>
 
     const candidates = [
-    maybeObject.answer,
-    maybeObject.response,
-    maybeObject.output,
-    Array.isArray((payload as { outputs?: string[] }).outputs)
-      ? ((payload as { outputs?: string[] }).outputs ?? []).join('\n')
-      : undefined,
-    Array.isArray(maybeObject.sourceParts) && maybeObject.sourceParts.length > 0
-      ? (maybeObject.sourceParts as unknown[])
+      maybeObject.answer,
+      maybeObject.response,
+      maybeObject.output,
+      Array.isArray((payload as { outputs?: string[] }).outputs)
+        ? ((payload as { outputs?: string[] }).outputs ?? []).join('\n')
+        : undefined,
+      Array.isArray(maybeObject.sourceParts) && maybeObject.sourceParts.length > 0
+        ? (maybeObject.sourceParts as unknown[])
           .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
           .join('\n')
-      : undefined,
+        : undefined,
       maybeObject.rendered,
       maybeObject.text,
       maybeObject.data,
@@ -129,7 +129,7 @@ function App() {
     const historySnapshot = [...messages, userMessage]
     const payload = {
       ntl: '',
-      agent: 'ChatBot',
+      agent: 'ChatBot2',
       params: [
         {
           name: 'userInput',
@@ -145,7 +145,7 @@ function App() {
         toppMod: 1,
         freqpenaltyMod: 1,
         minTokens: 0,
-        maxTokens: 1000,
+        maxTokens: 10000,
         lastTurn: buildLastTurn(historySnapshot),
         returnVariables: false,
         returnVariablesExpanded: false,
@@ -170,13 +170,28 @@ function App() {
       }
 
       const data = await response.json()
-      const botReply = resolveBotText(data) || 'The service returned an empty response.'
+      var botReply = resolveBotText(data) + '\"}' || 'The service returned an empty response.'
+      var isSuspicious = false;
+
+      try {
+        const parsed = JSON.parse(botReply);
+        botReply = parsed.response;
+        isSuspicious = parsed.suspicious;
+      }
+      catch {
+        console.log('bot reply is not JSON')
+      }
 
       pushMessage({
         id: `bot-${Date.now()}`,
         sender: 'bot',
         text: botReply,
       })
+
+      if (isSuspicious) {
+        console.log('this is definitely sus not gonna lie')
+      }
+
       setErrorMessage(null)
     } catch (error) {
       console.error(error)
