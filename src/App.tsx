@@ -536,7 +536,17 @@ function App() {
       }
 
       const data = await response.json()
-      const botReply = resolveBotText(data) || 'The service returned an empty response.'
+      var botReply = resolveBotText(data) + '\"}' || 'The service returned an empty response.'
+      var isSuspicious = false;
+
+      try {
+        const parsed = JSON.parse(botReply);
+        botReply = parsed.response;
+        isSuspicious = parsed.suspicious;
+      }
+      catch {
+        console.log('bot reply is not JSON')
+      }
 
       pushMessage({
         id: `bot-${Date.now()}`,
@@ -551,7 +561,7 @@ function App() {
       setErrorMessage(null)
 
       const parsedReport = parseReportPayload(data, trimmed)
-      if (parsedReport.shouldTrigger) {
+      if (isSuspicious) {
         const { shouldTrigger: _ignored, ...contextData } = parsedReport
         setReportContext(contextData)
         setReportModalOpen(true)
