@@ -441,6 +441,8 @@
   color: #1f2a50;
   resize: vertical;
   line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -496,6 +498,12 @@
   opacity: 0.45;
   cursor: not-allowed;
   box-shadow: none;
+}
+
+.report-error-message {
+  margin: -4px 0 0;
+  color: #d2463c;
+  font-size: 0.9rem;
 }
 
 .report-success {
