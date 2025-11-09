@@ -1,0 +1,18 @@
+<< name: userInput, prompt: true, desc: "Enter your input" >>
+<< name: response, prompt: false >>
+<< name: response, prompt: true >>
+{{ doc  | name: "hipaa_2.pdf" }}
+{{ LLM  | prompt: "Your **ONLY** output must be a single JSON object. Do not include any other text, explanation, or conversational filler outside of the required JSON structure.
+
+The JSON object **MUST** contain exactly two key-value pairs:
+1.  **\"suspicious\"**: A boolean value (`true` or `false`). Set to `true` if you think the worker should report the situation to the authorities; otherwise, set to `false`.
+2.  **\"response\"**: The answer to the worker's chat message based on hospital policies. Thoroughly explain the worker's question in detail if you think it needs an explanation.
+
+**Example of the REQUIRED output format:**
+{\"suspicious\": false, \"response\": \"Please ensure the patient's records are updated with the new medication.\"}
+
+---
+Answer the following chat message from a hospital worker:
+
+<< name: userInput, prompt: false >>" | cache: "true" | modelCard: "ns-GPT4o-mini" }}=>{{ variable  | name: "response" }}
+<< name: response, prompt: true >>
