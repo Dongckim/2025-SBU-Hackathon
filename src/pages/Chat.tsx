@@ -140,11 +140,25 @@ const ReportModal = ({ isOpen, onClose, context }: ReportModalProps) => {
       return
     }
 
+    if (!REPORT_API_URL) {
+      setSubmitError('Report API endpoint is not configured. Please set VITE_REPORT_API_URL.')
+      return
+    }
+
     setIsSubmitting(true)
     setSubmitError(null)
 
     const fallbackTicketId = context.ticketId ?? generateTicketId()
     const fallbackTimestamp = formatTimestamp(context.timestamp)
+
+    const payload = {
+      issue_type: selectedIssue,
+      title:
+        (context.flaggedMessage?.length ?? 0) > 0
+          ? context.flaggedMessage.slice(0, 140)
+          : 'Suspicious report submitted from chatbot',
+      description: details.trim(),
+    }
 
     try {
       const response = await fetch(REPORT_API_URL, {
@@ -152,14 +166,7 @@ const ReportModal = ({ isOpen, onClose, context }: ReportModalProps) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          issue_type: ISSUE_LABELS[selectedIssue],
-          title:
-            (context.flaggedMessage?.length ?? 0) > 0
-              ? context.flaggedMessage.slice(0, 140)
-              : 'Suspicious report submitted from chatbot',
-          description: details.trim(),
-        }),
+        body: JSON.stringify(payload),
       })
 
       if (!response.ok) {
@@ -169,8 +176,6 @@ const ReportModal = ({ isOpen, onClose, context }: ReportModalProps) => {
         } catch (readError) {
           console.error('Failed to read error response body', readError)
         }
-
-        console.error('Report submission failed', response.status, errorPayload)
 
         const trimmed = errorPayload.trim()
         const friendlyError =
@@ -202,7 +207,6 @@ const ReportModal = ({ isOpen, onClose, context }: ReportModalProps) => {
       })
       setMode('success')
     } catch (error) {
-      console.error('Failed to submit report', error)
       const message = error instanceof Error ? error.message : 'Failed to submit the report. Please try again.'
       setSubmitError(message)
     } finally {
@@ -320,9 +324,9 @@ const ReportModal = ({ isOpen, onClose, context }: ReportModalProps) => {
 }
 
 const BOT_NAME = 'Hackerton Bot'
-const API_BASE_URL = 'https://stagingapi.neuralseek.com/v1/stony36'
-const API_KEY = import.meta.env.VITE_NEURALSEEK_API_KEY ?? 'e24f8a05-e4fe85b2-3e859a20-6186b503'
-const REPORT_API_URL = import.meta.env.VITE_REPORT_API_URL ?? 'http://10.18.124.162:3001/api/reports'
+const API_BASE_URL = import.meta.env.VITE_NEURALSEEK_API_BASE ?? ''
+const API_KEY = import.meta.env.VITE_NEURALSEEK_API_KEY ?? ''
+const REPORT_API_URL = import.meta.env.VITE_REPORT_API_URL ?? ''
 
 const initialMessages: Message[] = [
   {
@@ -434,6 +438,11 @@ function Chat() {
       return
     }
 
+    if (!API_BASE_URL) {
+      setErrorMessage('NeuralSeek API endpoint is not configured. Please set VITE_NEURALSEEK_API_BASE.')
+      return
+    }
+
     const userMessage: Message = {
       id: `user-${Date.now()}`,
       sender: 'user',
@@ -507,17 +516,7 @@ function Chat() {
         isSuspicious: isSuspicious
       })
 
-      if (isSuspicious) {
-        console.log('this is definitely sus not gonna lie')
-      }
-
       setErrorMessage(null)
-
-      // No longer automatically trigger report modal for suspicious messages
-      // Keep the console log for debugging purposes
-      if (isSuspicious) {
-        console.log('Suspicious message detected')
-      }
     } catch (error) {
       console.error(error)
       const fallbackText =

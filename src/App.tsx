@@ -18,8 +18,21 @@ const GlobalNav = () => {
 
 
       <div className="global-nav__cta">
-        <button type="button" className="nav-chat-button" onClick={() => navigate('/chat')}>
-          Open Chat
+        <button
+          type="button"
+          className="nav-chat-button"
+          onClick={() => {
+            window.dispatchEvent(
+              new CustomEvent('secureSBU:openReport', {
+                detail: {
+                  flaggedMessage: 'Manual report from navigation bar',
+                  reason: 'User opened report dialog from the navigation.',
+                },
+              }),
+            )
+          }}
+        >
+          Report Suspicious Activity
         </button>
         <div className="avatar-badge" aria-hidden="true">
           A
