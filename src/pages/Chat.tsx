@@ -25,9 +25,9 @@ const initialMessages: Message[] = [
 ]
 
 const quickReplies: string[] = [
-  'What can this chatbot do?',
-  'What can I try right now?',
-  'Show me a sample answer',
+  'Can I send patient info to my personal email?',
+  'I think I received a phishing email.',
+  'How do I dispose of paper patient charts?',
 ]
 
 function Chat() {
