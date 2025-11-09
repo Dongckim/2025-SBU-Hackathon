@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import '../App.css'
+import ReportModal, { type ReportDialogContext } from '../components/ReportModal'
 
 type RawReport = Record<string, unknown>
 
@@ -193,6 +194,8 @@ const MyReports = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [selectedReport, setSelectedReport] = useState<ReportRecord | null>(null)
+  const [isReportOpen, setIsReportOpen] = useState(false)
+  const [reportContext, setReportContext] = useState<ReportDialogContext | null>(null)
 
   useEffect(() => {
     const fetchReports = async () => {
@@ -273,6 +276,26 @@ const MyReports = () => {
     fetchReports()
   }, [currentPage, pageSize])
 
+  useEffect(() => {
+    const handleExternalReport = (event: Event) => {
+      const detail = (event as CustomEvent<Partial<ReportDialogContext> | undefined>).detail
+      setReportContext({
+        flaggedMessage: detail?.flaggedMessage ?? 'Manual report from navigation bar',
+        reason: detail?.reason ?? 'User opened report dialog from the navigation.',
+        issueType: detail?.issueType,
+        ticketId: detail?.ticketId,
+        timestamp: detail?.timestamp,
+        details: detail?.details,
+      })
+      setIsReportOpen(true)
+    }
+
+    window.addEventListener('secureSBU:openReport', handleExternalReport)
+    return () => {
+      window.removeEventListener('secureSBU:openReport', handleExternalReport)
+    }
+  }, [])
+
   const filteredReports = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase()
     return reports.filter((report) => {
@@ -299,6 +322,19 @@ const MyReports = () => {
     setSearchTerm(event.target.value)
   }
 
+  const handleNewReportClick = () => {
+    setReportContext({
+      flaggedMessage: 'Manual report from My Reports page',
+      reason: 'User opened report dialog from My Reports page.',
+    })
+    setIsReportOpen(true)
+  }
+
+  const closeReportModal = () => {
+    setIsReportOpen(false)
+    setReportContext(null)
+  }
+
   return (
     <div className="reports-page">
       <header className="reports-header">
@@ -307,20 +343,7 @@ const MyReports = () => {
           <p className="reports-subtitle">Track the progress of every security report you have submitted.</p>
         </div>
 
-        <button
-          type="button"
-          className="reports-new-button"
-          onClick={() => {
-            window.dispatchEvent(
-              new CustomEvent('secureSBU:openReport', {
-                detail: {
-                  flaggedMessage: 'Manual report from My Reports page',
-                  reason: 'User opened report dialog from My Reports page.',
-                },
-              }),
-            )
-          }}
-        >
+        <button type="button" className="reports-new-button" onClick={handleNewReportClick}>
           <span aria-hidden="true">＋</span> New Report
         </button>
       </header>
@@ -520,6 +543,14 @@ const MyReports = () => {
           </div>
         </div>
       )}
+
+      <ReportModal
+        isOpen={isReportOpen}
+        onClose={closeReportModal}
+        context={reportContext}
+        fallbackTitle="Suspicious report submitted from My Reports page"
+        successButtonLabel="Back to My Reports"
+      />
     </div>
   )
 }
